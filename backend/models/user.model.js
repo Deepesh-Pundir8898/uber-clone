@@ -11,8 +11,8 @@ const userSchema = new mongoose.Schema({
             minLength:[3,'First name must be at least 3 characters long']
         },
         lastname:{
-            type:String,
-            minLength:[3,'Last name must be at least 3 characters long']
+            type:String
+            // minLength:[3,'Last name must be at least 3 characters long']
         }
     },
     email:{
@@ -34,12 +34,16 @@ const userSchema = new mongoose.Schema({
 // Model : the DB collection with which that data will interact
 
 userSchema.methods.genrateAuthToken = function(){
-    const token = jwt.sign({ _id: this._id.toString() }, process.env.JWT_SECRET)
+    const token = jwt.sign({ _id: this._id.toString() }, process.env.JWT_SECRET, { expiresIn: '24h' });
     return token;
 }
 
-userSchema.methods.comaparePassword = async function (password){
-    return await bcrypt.compare(password , this.password);
+userSchema.methods.comparePassword = async function (password){
+    try {
+        return await bcrypt.compare(password, this.password);
+    } catch (error) {
+        throw new Error('Error comparing passwords');
+    }
 }
 
 userSchema.statics.hashPassword= async function(password){

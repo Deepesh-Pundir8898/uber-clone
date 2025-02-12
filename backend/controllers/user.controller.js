@@ -1,6 +1,7 @@
 import { userModel } from "../models/user.model.js";
 import { createUser } from "../services/user.service.js";
 import { validationResult } from "express-validator";
+import BlacklistToken from "../models/blacklistToken.model.js";
 
 export const userRegister = async(req ,res,next)=>{
     const errors = validationResult(req);
@@ -10,6 +11,7 @@ export const userRegister = async(req ,res,next)=>{
 
     const {fullname , email,password} = req.body;
 
+    console.log(fullname,email,password)
     const hashedPassword = await userModel.hashPassword(password);
 
     const user = await createUser({
@@ -20,4 +22,37 @@ export const userRegister = async(req ,res,next)=>{
     });
     const token =user.genrateAuthToken();
     res.status(201).json({token ,user})
+}
+
+export const userLogin = async(req ,res,next)=>{
+    const errors = validationResult(req);
+    if(!errors){
+        return res.status(400).json({errors:errors.array()})
+    }
+    const {email , password} = req.body;
+    const user = await userModel.findOne({email}).select("+password");
+    if(!user){
+        return res.status(401).json({message:"Invalid Email"})
+    }
+    const isMatch = await user.comparePassword(password);
+    if(!isMatch){
+        return res.status(401).json({message:"Invalid Password"})
+    }
+    const token = user.genrateAuthToken();
+
+    res.cookie('token',token,{httpOnly:true})
+
+    res.status(200).json({token , user})
+}
+
+export const userProfile = async(req ,res,next)=>{
+    res.status(200).json(req.user)
+}
+
+export const userLogout = async(req ,res,next)=>{
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+    await BlacklistToken.create({token});
+
+    res.clearCookie('token');
+    res.status(200).json({message:"Logged out"})
 }
